@@ -1,0 +1,43 @@
+name:                stripe-export
+version:             0.1.0.0
+-- synopsis:
+-- description:
+homepage:            https://github.com/srdqty/stripe-export#readme
+license:             BSD3
+license-file:        LICENSE
+author:              Sophia Donataccio
+maintainer:          srdqty@gmail.com
+copyright:           2017 Sophia Donataccio
+category:            Web
+build-type:          Simple
+extra-source-files:  README.md
+cabal-version:       >=1.10
+
+executable stripe-export
+  hs-source-dirs:      app
+  main-is:             Main.hs
+  other-modules:       CommandLineParser
+                     , StripeExport
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N -fwarn-incomplete-patterns -fwarn-dodgy-exports -fwarn-dodgy-imports -fwarn-unused-matches -fwarn-unused-imports -fwarn-unused-binds
+  build-depends:       base
+                     , wreq
+                     , base64-string
+                     , lens
+                     , bytestring
+                     , text
+                     , http-client
+                     , http-client-tls
+                     , optparse-applicative
+                     , unix-time
+                     , gitrev
+  default-language:    Haskell2010
+  default-extensions:  DataKinds
+                     , DeriveGeneric
+                     , FlexibleContexts
+                     , OverloadedStrings
+                     , RecordWildCards
+                     , TypeOperators
+
+source-repository head
+  type:     git
+  location: https://github.com/srdqty/stripe-export
