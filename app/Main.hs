@@ -2,25 +2,31 @@
 
 module Main where
 
-import qualified Data.ByteString.Lazy as B (putStr)
+import Control.Lens ((.~), (&))
 import Data.Version (showVersion)
 import Development.GitRev (gitHash)
-import CommandLineParser (parseCommandLine, ExportOptions(..))
+import CommandLineParser (parseCommandLine, ConnectMode(..), ExportOptions(..))
 import Paths_stripe_export (version)
-import StripeExport (exportRaw, RequestParameters(..))
+import Pipes (runEffect, (>->))
+import StripeExport.Pipes (requestAll, requestAllConnect, encodeJSON, stdoutJSONL)
+import StripeExport.Raw
+    ( defaultRequestParameters
+    , createdGTE
+    , createdLT
+    , limit
+    )
 import System.Environment (getEnv)
 
 main = do
     commandLineOptions <- parseCommandLine (showVersion version) $(gitHash)
     stripeApiSecret <- getEnv "STRIPE_API_SECRET"
-    rawData <- exportRaw $ requestParamters stripeApiSecret commandLineOptions
-    B.putStr rawData
+    let parameters = requestParameters stripeApiSecret commandLineOptions
+    runEffect $ requestAll parameters >-> encodeJSON >-> stdoutJSONL
+    case _connectMode commandLineOptions of
+        ExcludeConnect -> return ()
+        IncludeConnect -> runEffect $ requestAllConnect parameters >-> encodeJSON >-> stdoutJSONL
     where
-        requestParamters secret opts = RequestParameters
-            { apiSecret = secret
-            , endpointPath = _endpointPath opts
-            , connectAccountId = Nothing
-            , createdGTE = _createdGTE opts
-            , createdLT = _createdLT opts
-            , limit = Just 28
-            }
+        requestParameters secret opts = defaultRequestParameters secret (_endpointPath opts)
+            & createdGTE .~ _createdGTE opts
+            & createdLT .~ _createdLT opts
+            & limit .~ Just 100
