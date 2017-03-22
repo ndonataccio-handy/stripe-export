@@ -5,12 +5,13 @@ module StripeExport.Pipes
     , stdoutJSONL
     )where
 
-import Control.Lens((^.), (^..), (^?), (&), (.~), lastOf)
-import Data.Aeson (encode, Value)
-import Data.Aeson.Lens (_Bool, key, _String, values)
+import Control.Lens ((^.), (^..), (^?), (&), (.~), (?~), lastOf)
+import Control.Lens.At (at)
+import Data.Aeson (encode, Value(..))
+import Data.Aeson.Lens (_Bool, key, _Object, _String, values)
 import qualified Data.ByteString.Lazy.Char8 as B (ByteString, putStrLn)
 import Data.Maybe (isNothing)
-import Data.Text (unpack)
+import Data.Text (pack, unpack)
 import Control.Monad (unless)
 import Pipes
 import StripeExport.Raw
@@ -39,8 +40,14 @@ requestAllConnect parameters =
     for (requestAll connectParameters) requestValues
     where
         connectParameters = defaultRequestParameters (parameters ^. apiSecret) "accounts"
-        requestValues account = requestAll (parameters & connectAccountId .~ maybeId account)
-        maybeId account = fmap unpack $ account ^? key "id" . _String
+        requestValues account = for
+            (requestAll $ parameters & connectAccountId .~ Just connectId)
+            (yield . annotateWithConnectId)
+            where
+                connectId = unpack $ foldr const (error "Missing id") maybeId
+                maybeId = account ^? key "id" . _String
+                annotateWithConnectId object =
+                  Object $ object ^. _Object & at "connect_id" ?~ String (pack connectId)
 
 stdoutJSONL :: Consumer B.ByteString IO ()
 stdoutJSONL = for cat (lift . B.putStrLn)
