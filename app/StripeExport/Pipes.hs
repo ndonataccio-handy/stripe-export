@@ -11,6 +11,7 @@ import Data.Aeson (encode, Value(..))
 import Data.Aeson.Lens (_Bool, key, _Object, _String, values)
 import qualified Data.ByteString.Lazy.Char8 as B (ByteString, putStrLn)
 import Data.Maybe (isNothing)
+import Data.Semigroup ((<>))
 import Data.Text (pack, unpack)
 import Control.Monad (unless)
 import Pipes
@@ -22,16 +23,21 @@ import StripeExport.Raw
     , connectAccountId
     , startingAfter
     )
+import System.IO (hPutStrLn, stderr)
 
 requestAll :: RequestParameters -> Producer Value IO ()
 requestAll parameters = do
-    bytes <- lift $ requestRaw parameters
-    let items = bytes ^.. key "data" . values
-    let hasMore = foldr const False (bytes ^? key "has_more" . _Bool)
-    let maybeLastId = fmap unpack $ lastOf traverse items >>= (^? key "id" . _String)
-    each items
-    unless (isNothing maybeLastId || not hasMore)
-           (requestAll $ parameters & startingAfter .~ maybeLastId)
+    lift $ hPutStrLn stderr $ "Connect Id: " <> show (parameters ^. connectAccountId)
+    loop parameters
+    where
+        loop parameters = do
+            bytes <- lift $ requestRaw parameters
+            let items = bytes ^.. key "data" . values
+            let hasMore = foldr const False (bytes ^? key "has_more" . _Bool)
+            let maybeLastId = fmap unpack $ lastOf traverse items >>= (^? key "id" . _String)
+            each items
+            unless (isNothing maybeLastId || not hasMore)
+                   (loop $ parameters & startingAfter .~ maybeLastId)
 
 -- This requests all the objects scoped to any connect account. We have to iterate over each
 -- connect account and make a requestAll call to accumulate all of the objects.
